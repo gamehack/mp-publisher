@@ -53,6 +53,8 @@ def parser() -> argparse.ArgumentParser:
 
 def _period(args: argparse.Namespace):
     profile = get_profile(args.profile)
+    if profile.name == "overseas" and not args.period:
+        raise PublisherError("Overseas stories require explicit --period; no automatic date selection")
     period = args.period or default_period(profile)
     return profile, validate_period(profile, period)
 
