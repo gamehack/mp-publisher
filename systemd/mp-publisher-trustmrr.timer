@@ -1,0 +1,11 @@
+[Unit]
+Description=QJAI WeChat TrustMRR drafts Monday 03:00 Beijing
+
+[Timer]
+OnCalendar=Mon *-*-* 03:00:00 Asia/Shanghai
+Persistent=false
+AccuracySec=1min
+Unit=mp-publisher@trustmrr.service
+
+[Install]
+WantedBy=timers.target

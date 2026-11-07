@@ -1,0 +1,12 @@
+[Unit]
+Description=QJAI WeChat Product Hunt draft at 17:30 and 18:30 Beijing
+
+[Timer]
+OnCalendar=*-*-* 17:30:00 Asia/Shanghai
+OnCalendar=*-*-* 18:30:00 Asia/Shanghai
+Persistent=false
+AccuracySec=1min
+Unit=mp-publisher@producthunt.service
+
+[Install]
+WantedBy=timers.target

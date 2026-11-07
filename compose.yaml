@@ -1,0 +1,21 @@
+services:
+  mp-publisher:
+    build: .
+    image: qjai/mp-publisher:local
+    restart: "no"
+    init: true
+    env_file:
+      - /etc/mp-publisher/publisher.env
+    environment:
+      QJAI_PUBLISHER_STATE: /data/state.sqlite
+    volumes:
+      - /var/lib/mp-publisher:/data
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m

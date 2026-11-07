@@ -1,0 +1,11 @@
+[Unit]
+Description=QJAI WeChat X Daily draft at 07:30 Beijing
+
+[Timer]
+OnCalendar=*-*-* 07:30:00 Asia/Shanghai
+Persistent=false
+AccuracySec=1min
+Unit=mp-publisher@x.service
+
+[Install]
+WantedBy=timers.target

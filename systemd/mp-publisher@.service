@@ -1,0 +1,21 @@
+[Unit]
+Description=QJAI WeChat draft publisher (Docker, %i)
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mp-publisher
+UMask=0077
+StateDirectory=mp-publisher
+StateDirectoryMode=0700
+ExecStart=/usr/bin/flock --nonblock /run/lock/mp-publisher-%i.lock /usr/bin/docker compose -f /opt/mp-publisher/compose.yaml run --rm --no-deps mp-publisher run --profile %i
+TimeoutStartSec=900
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/mp-publisher /run/lock
+
+[Install]
+WantedBy=multi-user.target
