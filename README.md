@@ -4,7 +4,7 @@
 
 **运行位置：硅谷服务器 Docker 容器**。微信公众平台的 API IP 白名单包含该服务器的出口 IP，因此定时发布不能在 GitHub-hosted Actions 上执行。本仓库的 Actions **只跑 CI**，生产调度由服务器 systemd timer 启动临时容器，不运行常驻 HTTP 服务或定时轮询。
 
-配套系统：独立 [cms-publisher](https://github.com/gamehack/cms-publisher) 负责 CMS 草稿（GitHub Actions），二者互不调用；原 [qjai-text-publisher](https://github.com/gamehack/qjai-text-publisher) 在安全切换后停止全部定时任务。本项目没有 CMS 客户端、CMS 密钥、CMS 草稿写入或公众号群发/公开发布能力。
+配套系统：独立 [cms-publisher](https://github.com/gamehack/cms-publisher) 负责 CMS 草稿（GitHub Actions），二者互不调用。旧统一发布器的服务器代码与全部 systemd 单元已于 2026-11-08 下线清理。本项目没有 CMS 客户端、CMS 密钥、CMS 草稿写入或公众号群发/公开发布能力。
 
 ## 流程与计划时间
 
@@ -65,35 +65,14 @@ mp-publisher backfill --profile producthunt --period 2026-11-06 --authorize
 - 镜像文件系统只读，除 `/data` 和临时 `/tmp` 外无写入挂载；移除 Linux capabilities、禁止新权限。
 - `docker compose run --rm` 每个定时任务执行完即退出，不占常驻容器资源。
 
-### 初次切换（严禁新旧发布器同时调度）
+### 现行部署与迁移验收（2026-11-08）
 
-1. 检查旧 `qjai-text-publisher` 的三组 timer 和当下正在运行的服务，确认不存在执行中的微信 `draft/add` 或 `UNKNOWN/INTENT` 未对账记录；检查 `cms-publisher` 已独立运行。
-2. 检出此仓库至 `/opt/mp-publisher`；核对固定版本、`docker compose version`、Docker 状态，运行测试。**此时不启用新 timer，不触发写入。**
-3. 创建 root 私有目录：`install -d -o root -g root -m 0700 /etc/mp-publisher /var/lib/mp-publisher`。
-4. 由 root 运行 `python3 scripts/migrate-env.py --source /opt/qjai-text-publisher/.env --dest /etc/mp-publisher/publisher.env`。此脚本仅复制 Notion 与微信 allowlist 环境变量，**不复制 CMS token 或旧数据库路径，不打印密钥**；目标已存在时拒绝覆盖。检查开关值但不要输出密钥。
-5. 等待旧任务结束后执行 `systemctl disable --now` 旧三组 timer。**此时为切换窗口起点**；禁止旧任务再次执行。
-6. 使用旧项目经过测试的 SQLite 在线备份命令，将旧状态一致性迁移为新状态：
-
-   ```bash
-   cd /opt/qjai-text-publisher
-   .venv/bin/qjai-text-publisher --env-file .env \
-     backup-state --output /var/lib/mp-publisher/state.sqlite --authorize
-   ```
-
-   备份必须由有权限的受控执行环境运行；源文件包含 WAL，**不可直接 `cp` 在线数据库**。新代码兼容旧 SQLite schema v1，但只访问 `wechat` 行；旧 `cms` 历史行不会触发任何 CMS 业务。保留旧源库用于对账，不删除。
-7. `cd /opt/mp-publisher && docker compose build`。然后仅执行：
-
-   ```bash
-   docker compose run --rm mp-publisher check-wechat
-   docker compose run --rm mp-publisher health
-   docker compose run --rm mp-publisher status --profile producthunt
-   docker compose run --rm mp-publisher dry-run --profile x
-   docker compose run --rm mp-publisher dry-run --profile producthunt
-   ```
-
-   检查新状态与旧状态的各 profile 微信成功/异常数量一致；特别确认 `producthunt:2026-11-06` 是 `SUCCESS`。如当日内容未 READY，`dry-run` 返回 `SKIPPED`，不代表容器失败。`check-wechat` 仅验证白名单和凭据，不创建草稿。
-8. 通过后用 `bash scripts/install-systemd.sh` 安装 timer（脚本**不会自动启用**），校验 `systemd-analyze verify` 与 `systemctl list-timers`；确认旧 timer 已禁用，再逐个启用 `mp-publisher-x.timer`、`mp-publisher-producthunt.timer`、`mp-publisher-trustmrr.timer`。
-9. 等待下一轮自然定时产出，核对 `journalctl -u mp-publisher@<profile>.service`、微信 SQLite `SUCCESS` 与公众号后台草稿。**新链路首次实际写入验收后**再清理旧代码/安装；清理前不要删除旧 SQLite 与审计数据。
+- `/opt/mp-publisher` 已独立运行，环境文件位于 `/etc/mp-publisher/publisher.env`，状态位于 `/var/lib/mp-publisher/state.sqlite`；权限由 root 管理。
+- 已由旧 SQLite 的一致性在线备份迁入微信幂等状态，迁移核对 16 条微信 SUCCESS。旧 CMS 行不会被本项目消费；不可重置已成功记录。
+- 三个新 timer 已启用：`mp-publisher-x.timer`、`mp-publisher-producthunt.timer`、`mp-publisher-trustmrr.timer`。旧服务器代码、旧 .env、四个 systemd 单元和旧锁已清除。**不要按早期迁移步骤寻找 /opt/qjai-text-publisher/.env 或重新安装旧单元。**
+- 为核对尚未解决的旧 CMS PENDING 记录，暂保留 `/var/lib/qjai-text-publisher` 只读历史账本；本项目不依赖该路径。待 CMS 对账后再清理。
+- 首次自然微信调度仍待验收：X 2026-11-08 07:30；Product Hunt 17:30/18:30；TrustMRR 2026-11-09 03:00（北京时间）。通过容器日志、SQLite 状态及公众号后台草稿核实，不得因定时器启用就声称已投递。
+- 安全只读检查：`cd /opt/mp-publisher && sudo docker compose run --rm --no-deps mp-publisher health`；`check-wechat` 仅 GET token，不建草稿。
 
 生产命令必须在硅谷服务器受控执行，不能将 `.env` 或 SQLite 上传 GitHub、Notion、Actions Artifact。
 
@@ -102,5 +81,5 @@ mp-publisher backfill --profile producthunt --period 2026-11-06 --authorize
 - 暂停所有微信投递：禁用新三组 timer；必要时将受控环境中的 `WECHAT_ENABLE_DRAFTS=false`。不要停止 `cms-publisher` 的 GitHub Actions。
 - 读取 `status/health` 不会调用微信 API；`check-wechat` 只调用 GET token；`preview/dry-run` 只读取 Notion。任何 `UNKNOWN/INTENT/FAILED` 先对账，不自动重试。
 - 通过 `reconcile --channel wechat --result ABSENT --authorize --confirm-absent --evidence '...'` 重新允许一次**已核验不存在**的草稿。只用服务器受控权限执行。
-- 回滚不得直接重新启用旧 timer：新数据库可能已有旧数据库不知道的成功投递，须先迁回新期微信状态或人工对账，否则可能重复建草稿。
+- 回滚不得重新创建旧 timer：旧部署已清理，且新数据库可能已有旧账本不知道的成功投递；必须先人工对账并制定独立回滚方案，否则可能重复建草稿。
 - 不运行 `down -v`，不删除私有 SQLite，不公开映射端口。
