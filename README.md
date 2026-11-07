@@ -83,3 +83,11 @@ mp-publisher backfill --profile producthunt --period 2026-11-06 --authorize
 - 通过 `reconcile --channel wechat --result ABSENT --authorize --confirm-absent --evidence '...'` 重新允许一次**已核验不存在**的草稿。只用服务器受控权限执行。
 - 回滚不得重新创建旧 timer：旧部署已清理，且新数据库可能已有旧账本不知道的成功投递；必须先人工对账并制定独立回滚方案，否则可能重复建草稿。
 - 不运行 `down -v`，不删除私有 SQLite，不公开映射端口。
+
+## 海外创业志（M7 预接入，默认关闭）
+
+- 新增 `overseas` Profile，固定读取 Notion「07 · 海外创业志」的直接子页面，标题格式 `YYYY-MM-DD｜海外创业志｜<人物故事标题>`，来源键 `overseas-stories:YYYY-MM-DD`。
+- `preview/dry-run/run/backfill` 均需显式 `--period YYYY-MM-DD`；**没有新 systemd timer**，不影响现有 X、Product Hunt、TrustMRR 定时任务。
+- `PUBLISH_OVERSEAS_ENABLED=false`、`WECHAT_OVERSEAS_ENABLED=false` 为默认值；封面素材 `WECHAT_THUMB_MEDIA_ID_OVERSEAS` 需要在受控服务器环境中配置，不能写入仓库。
+- 首篇 M7 人工审核通过、正文 READY 校验、公众号封面与幂等状态核对完成后，才允许授权开启新 Profile。仅投草稿，不群发。
+- 规范见 [M7 编辑与自动化验收](https://app.notion.com/p/4119e605ccf881f0ae22dcad97535908)。
