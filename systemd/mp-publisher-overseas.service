@@ -1,0 +1,18 @@
+[Unit]
+Description=QJAI Overseas Stories WeChat draft publisher (automatic READY discovery)
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mp-publisher
+UMask=0077
+StateDirectory=mp-publisher
+StateDirectoryMode=0700
+ExecStart=/usr/bin/flock --nonblock /run/lock/mp-publisher-overseas.lock /usr/bin/docker compose -f /opt/mp-publisher/compose.yaml run --rm --no-deps mp-publisher run --profile overseas --auto
+TimeoutStartSec=900
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/mp-publisher /run/lock
