@@ -41,6 +41,20 @@ def test_producthunt_two_fixed_beijing_timer_slots_and_same_period():
     assert default_period(PROFILES["producthunt"], fallback) == "2026-11-06"
 
 
+def test_overseas_daily_0730_timer_preserves_readiness_and_existing_x_schedule():
+    from pathlib import Path
+
+    folder = Path(__file__).resolve().parents[1] / "systemd"
+    timer = (folder / "mp-publisher-overseas.timer").read_text()
+    x_timer = (folder / "mp-publisher-x.timer").read_text()
+    assert "OnCalendar=*-*-* 07:30:00 Asia/Shanghai" in timer
+    assert "OnCalendar=*-*-* 09:15:00 Asia/Shanghai" not in timer
+    assert "Persistent=false" in timer
+    assert "Unit=mp-publisher-overseas.service" in timer
+    assert "OnCalendar=*-*-* 07:30:00 Asia/Shanghai" in x_timer
+    assert PROFILES["overseas"].schedule == "daily 07:30 Asia/Shanghai; only signed READY stories"
+
+
 def test_trust_default_is_current_beijing_monday():
     now = datetime(2026, 11, 6, 3, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
     assert default_period(PROFILES["trustmrr"], now) == "weekly:2026-11-02"

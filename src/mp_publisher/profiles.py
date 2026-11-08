@@ -45,7 +45,7 @@ PROFILES = {
         name="overseas",
         parent_id="4109e605-ccf8-81f8-9094-c5a0023b36b6",
         source="overseas-stories",
-        schedule="daily 09:15 Asia/Shanghai; only signed READY stories",
+        schedule="daily 07:30 Asia/Shanghai; only signed READY stories",
     ),
 }
 
