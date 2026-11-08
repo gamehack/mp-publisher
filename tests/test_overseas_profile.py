@@ -13,11 +13,20 @@ def test_overseas_profile_is_manual_only():
     assert p.parent_id == "4109e605-ccf8-81f8-9094-c5a0023b36b6"
     assert source_key(p, "01") == "overseas-stories:01"
     assert expected_title(p, "01") == ("海外创业志 01|", False)
-    assert display_title(p, "01", "海外创业志 01|Mihai 的反差创业") == "Mihai 的反差创业"
+    assert display_title(p, "01", "海外创业志 01|Mihai 的反差创业") == "海外创业志 01|Mihai 的反差创业"
     with pytest.raises(PublisherError, match="explicit --issue"):
         _period(Namespace(profile="overseas", period=None))
     with pytest.raises(PublisherError, match="calendar date"):
         default_period(p)
+
+
+def test_overseas_title_keeps_serial_and_enforces_wechat_byte_limit():
+    p = PROFILES["overseas"]
+    title = "海外创业志 01|不想开会的程序员，做起招标生意"
+    assert len(title.encode("utf-8")) == 64
+    assert display_title(p, "01", title) == title
+    with pytest.raises(PublisherError, match="64 UTF-8 bytes"):
+        display_title(p, "01", "海外创业志 01|不想再开会的程序员，一个人做起了招标生意")
 
 
 def test_overseas_cannot_send_without_explicit_flags(monkeypatch):

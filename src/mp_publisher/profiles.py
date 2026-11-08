@@ -157,4 +157,10 @@ def display_title(profile: Profile, period: str, notion_title: str) -> str:
     title = notion_title[len(selector):].strip()
     if not title or len(title) > 200:
         raise PublisherError("Invalid article title")
+    if profile.name == "overseas":
+        # Keep the serial and column identity in the actual WeChat draft title.
+        # The cover/period are stable editorial metadata, not a disposable date label.
+        if len(notion_title.encode("utf-8")) > 64:
+            raise PublisherError("Overseas draft title exceeds 64 UTF-8 bytes")
+        return notion_title
     return title
