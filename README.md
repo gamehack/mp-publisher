@@ -95,7 +95,7 @@ mp-publisher backfill --profile producthunt --period 2026-11-06 --authorize
 - 规范见 [M7 编辑与自动化验收](https://app.notion.com/p/4119e605ccf881f0ae22dcad97535908)。
 # 海外创业志 M8 自动草稿投递
 
-新增 `systemd/mp-publisher-overseas.{service,timer}`，每天 **北京时间 09:15** 通过现有硅谷服务器 Docker OneShot 扫描 Notion「07 · 海外创业志」的连续期号。`run --profile overseas --auto` 依据持久化 SQLite 台账跳过 `SUCCESS`，每次最多发送下一期已签署 READY 的草稿；未 READY / 缺期号 / 不明确回执则停止，绝不自动越过或重试可能成功的微信调用。不会公开发布、群发或修改原先的 X/产品猎人/TrustMRR timer。
+新增 `systemd/mp-publisher-overseas.{service,timer}`，每天 **北京时间 07:30** 通过现有硅谷服务器 Docker OneShot 扫描 Notion「07 · 海外创业志」的连续期号。`run --profile overseas --auto` 依据持久化 SQLite 台账跳过 `SUCCESS`，每次最多发送下一期已签署 READY 的草稿；未 READY / 缺期号 / 不明确回执则停止，绝不自动越过或重试可能成功的微信调用。该时段与既有 X timer 相同，两个栏目各自使用独立锁与来源键；首次自然执行需核对资源及微信 API 结果。不会公开发布、群发或修改原先的 X/产品猎人/TrustMRR timer。
 
 继续复用服务器的稳定出口 IP、既有密钥、封面与 `/var/lib/mp-publisher/state.sqlite`。上线时由既有部署流程安装 unit，并在核实环境变量 `PUBLISH_OVERSEAS_ENABLED=true`、`WECHAT_OVERSEAS_ENABLED=true`、`WECHAT_ENABLE_DRAFTS=true` 以及第 01 期台账已经 `SUCCESS` 后，单独启用：
 
