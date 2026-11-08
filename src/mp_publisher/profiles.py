@@ -139,7 +139,7 @@ def expected_title(profile: Profile, period: str) -> tuple[str, bool]:
     if profile.name == "producthunt":
         return f"{period}｜", False
     if profile.name == "overseas":
-        return f"{period}｜海外创业志｜", False
+        return f"海外创业志 {period}|", False
     kind, external = period.split(":", 1)
     label = "周报" if kind == "weekly" else "月报"
     return f"{external}｜TrustMRR {label}｜", False

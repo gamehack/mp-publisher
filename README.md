@@ -86,7 +86,7 @@ mp-publisher backfill --profile producthunt --period 2026-11-06 --authorize
 
 ## 海外创业志（M7 预接入，默认关闭）
 
-- 新增 `overseas` Profile，固定读取 Notion「07 · 海外创业志」的直接子页面，标题格式 `01｜海外创业志｜<人物故事标题>`，来源键 `overseas-stories:01`。序号与日期无关。
+- 新增 `overseas` Profile，固定读取 Notion「07 · 海外创业志」的直接子页面，标题格式 `海外创业志 01|<人物故事标题>`，来源键 `overseas-stories:01`。序号与日期无关。
 - `preview/dry-run/run/backfill` 均需显式 `--issue 01`（兼容 `--period 01`）；**没有新 systemd timer**，不影响现有 X、Product Hunt、TrustMRR 定时任务。
 - `PUBLISH_OVERSEAS_ENABLED=false`、`WECHAT_OVERSEAS_ENABLED=false` 为默认值；封面素材 `WECHAT_THUMB_MEDIA_ID_OVERSEAS` 需要在受控服务器环境中配置，不能写入仓库。
 - 首篇 M7 人工审核通过、正文 READY 校验、公众号封面与幂等状态核对完成后，才允许授权开启新 Profile。仅投草稿，不群发。
