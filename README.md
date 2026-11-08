@@ -1,6 +1,6 @@
 # mp-publisher
 
-潜界 AI 的独立微信公众号**草稿箱投递器**。内容生产项目将正式文章写入 Notion READY 专栏；本项目只从三个固定专栏读取原稿、校验来源与正文哈希、转换微信 HTML，再通过微信公众平台 `draft/add` 创建**未群发草稿**。
+潜界 AI 的独立微信公众号**草稿箱投递器**。内容生产项目将正式文章写入 Notion READY 专栏；本项目只从固定专栏读取原稿、校验来源与正文哈希、转换微信 HTML，再通过微信公众平台 `draft/add` 创建**未群发草稿**。
 
 **运行位置：硅谷服务器 Docker 容器**。微信公众平台的 API IP 白名单包含该服务器的出口 IP，因此定时发布不能在 GitHub-hosted Actions 上执行。本仓库的 Actions **只跑 CI**，生产调度由服务器 systemd timer 启动临时容器，不运行常驻 HTTP 服务或定时轮询。
 
@@ -84,12 +84,24 @@ mp-publisher backfill --profile producthunt --period 2026-11-06 --authorize
 - 回滚不得重新创建旧 timer：旧部署已清理，且新数据库可能已有旧账本不知道的成功投递；必须先人工对账并制定独立回滚方案，否则可能重复建草稿。
 - 不运行 `down -v`，不删除私有 SQLite，不公开映射端口。
 
-## 海外创业志（M7 预接入，默认关闭）
+## 海外创业志（M7 首期手动接入的历史说明）
 
 - 新增 `overseas` Profile，固定读取 Notion「07 · 海外创业志」的直接子页面，标题格式 `海外创业志 01|<人物故事标题>`，来源键 `overseas-stories:01`。序号与日期无关。
 - 与其他日更 Profile 的日期前缀不同，海外创业志的栏目名和期号会**保留在公众号实际草稿标题中**；完整标题按 64 UTF-8 字节上限验收，不静默截断，不删除序号。编辑可先精简 Notion 标题与正文一级标题，再重算 READY 摘要。
-- `preview/dry-run/run/backfill` 均需显式 `--issue 01`（兼容 `--period 01`）；**没有新 systemd timer**，不影响现有 X、Product Hunt、TrustMRR 定时任务。
+- M7 期间 `preview/dry-run/run/backfill` 均需显式 `--issue 01`（兼容 `--period 01`）；M8 才新增单独的自动扫描 timer，不影响原有三个定时任务。
 - `PUBLISH_OVERSEAS_ENABLED=false`、`WECHAT_OVERSEAS_ENABLED=false` 为默认值；封面素材 `WECHAT_THUMB_MEDIA_ID_OVERSEAS` 需要在受控服务器环境中配置，不能写入仓库。
 - 专栏封面图位于 [`assets/overseas-stories-cover-v1.jpg`](assets/overseas-stories-cover-v1.jpg)（900×384，低于 64 KiB）。这是公开静态品牌素材，**不是**微信素材 media_id；需由受控环境先上传为公众号永久封面素材，再将返回的 ID 写入服务器私有配置。仓库与日志不能保存返回 ID 或微信凭据。
 - 首篇 M7 人工审核通过、正文 READY 校验、公众号封面与幂等状态核对完成后，才允许授权开启新 Profile。仅投草稿，不群发。
 - 规范见 [M7 编辑与自动化验收](https://app.notion.com/p/4119e605ccf881f0ae22dcad97535908)。
+# 海外创业志 M8 自动草稿投递
+
+新增 `systemd/mp-publisher-overseas.{service,timer}`，每天 **北京时间 09:15** 通过现有硅谷服务器 Docker OneShot 扫描 Notion「07 · 海外创业志」的连续期号。`run --profile overseas --auto` 依据持久化 SQLite 台账跳过 `SUCCESS`，每次最多发送下一期已签署 READY 的草稿；未 READY / 缺期号 / 不明确回执则停止，绝不自动越过或重试可能成功的微信调用。不会公开发布、群发或修改原先的 X/产品猎人/TrustMRR timer。
+
+继续复用服务器的稳定出口 IP、既有密钥、封面与 `/var/lib/mp-publisher/state.sqlite`。上线时由既有部署流程安装 unit，并在核实环境变量 `PUBLISH_OVERSEAS_ENABLED=true`、`WECHAT_OVERSEAS_ENABLED=true`、`WECHAT_ENABLE_DRAFTS=true` 以及第 01 期台账已经 `SUCCESS` 后，单独启用：
+
+```bash
+sudo /opt/mp-publisher/scripts/install-systemd.sh
+sudo systemctl enable --now mp-publisher-overseas.timer
+```
+
+新 timer **不会**因为代码合并或安装 unit 而自动启用。人工 `--period NN` 仍可应急使用，和定时器共用 SQLite 防重台账。

@@ -12,6 +12,7 @@ from .errors import PublisherError, SkipArticle
 from .legacy import import_file
 from .operations import backup_state, inspect_state
 from .profiles import PROFILES, default_period, get_profile, scheduled_periods, validate_period
+from .notion import NotionReader
 from .runner import read_article, run
 from .state import StateStore
 
@@ -25,6 +26,7 @@ def parser() -> argparse.ArgumentParser:
         cmd = commands.add_parser(name)
         cmd.add_argument("--profile", required=True, choices=sorted(PROFILES))
         cmd.add_argument("--period", "--issue", dest="period", help="Overseas: serial issue (01); other profiles: period")
+        cmd.add_argument("--auto", action="store_true", help="Overseas: send first not-yet-delivered READY serial")
     status = commands.add_parser("status")
     status.add_argument("--profile", choices=sorted(PROFILES))
     health = commands.add_parser("health")
@@ -67,6 +69,25 @@ def execute(args: argparse.Namespace) -> dict[str, object]:
             check_wechat_credentials(app_id=config.required("WECHAT_APP_ID"),
                                      app_secret=config.required("WECHAT_APP_SECRET"), client=client)
         return {"status": "OK", "scope": "wechat_credential_and_ip_check", "external_write": False}
+    auto = getattr(args, "auto", False)
+    if auto:
+        if args.command != "run" or args.profile != "overseas" or args.period:
+            raise PublisherError("--auto requires overseas run without --period")
+        reader = NotionReader(config.required("NOTION_API_KEY"))
+        try:
+            issues = reader.overseas_issues(PROFILES["overseas"].parent_id)
+        finally:
+            reader.close()
+        for issue in issues:
+            key = f"overseas-stories:{issue}"
+            if store.delivery_state(key, "wechat") == "SUCCESS":
+                continue
+            try:
+                outcome = run(PROFILES["overseas"], issue, store)
+                return {**outcome.article.public_summary(), "status": "COMPLETED", "wechat": outcome.wechat}
+            except SkipArticle as exc:
+                return {"profile": "overseas", "period": issue, "status": "SKIPPED", "reason": str(exc)}
+        return {"profile": "overseas", "status": "SKIPPED", "reason": "No new overseas issue pending WeChat delivery"}
     if args.command in {"preview", "dry-run", "run", "backfill"}:
         profile, period = _period(args)
     if args.command in {"preview", "dry-run"}:

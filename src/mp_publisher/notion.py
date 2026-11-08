@@ -109,6 +109,25 @@ class NotionReader:
                 raise PublisherError("Inconsistent Notion pagination cursor")
             seen.add(cursor)
 
+    def overseas_issues(self, parent_id: str) -> tuple[str, ...]:
+        """Enumerate contiguous issue numbers, ignoring internal editorial pages."""
+        serials: set[int] = set()
+        for child in self.children(parent_id):
+            if child.get("type") != "child_page":
+                continue
+            title = (child.get("child_page") or {}).get("title")
+            if not isinstance(title, str):
+                raise PublisherError("Invalid overseas child title")
+            match = re.match(r"^海外创业志 (0[1-9]|[1-9][0-9]{1,4})\|", title)
+            if match:
+                serial = int(match.group(1))
+                if serial in serials:
+                    raise PublisherError("Duplicate overseas issue in Notion")
+                serials.add(serial)
+        if serials and sorted(serials) != list(range(1, max(serials) + 1)):
+            raise PublisherError("Overseas issues contain a gap; manual review required")
+        return tuple(f"{n:02d}" for n in sorted(serials))
+
     def all_blocks(self, page_id: str) -> list[dict[str, Any]]:
         def descend(parent: str, depth: int) -> list[dict[str, Any]]:
             if depth > 12:
