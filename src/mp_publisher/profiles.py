@@ -59,7 +59,9 @@ def get_profile(name: str) -> Profile:
 
 def default_period(profile: Profile, now: datetime | None = None) -> str:
     now = now or datetime.now(BEIJING)
-    if profile.name in {"x", "overseas"}:
+    if profile.name == "overseas":
+        raise PublisherError("Overseas issues never default to a calendar date")
+    if profile.name == "x":
         return now.astimezone(BEIJING).date().isoformat()
     if profile.name == "producthunt":
         return (now.astimezone(PACIFIC).date() - timedelta(days=1)).isoformat()
@@ -86,7 +88,11 @@ def scheduled_periods(profile: Profile, now: datetime | None = None) -> tuple[st
 
 
 def validate_period(profile: Profile, period: str) -> str:
-    if profile.name in {"x", "producthunt", "overseas"}:
+    if profile.name == "overseas":
+        if not re.fullmatch(r"0[1-9]|[1-9][0-9]{1,4}", period):
+            raise PublisherError("Overseas issue must be canonical 01..99999")
+        return period
+    if profile.name in {"x", "producthunt"}:
         try:
             parsed = date.fromisoformat(period)
         except ValueError:

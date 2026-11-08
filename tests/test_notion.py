@@ -18,6 +18,17 @@ def test_ready_marker_hash_and_mutation_detection():
         split_ready(body + "被改动\n" + marker, "producthunt:2026-11-05")
 
 
+def test_overseas_serial_ready_marker_is_isolated_from_daily_profiles():
+    body = "# 人物故事\n\n正文\n"
+    digest = hashlib.sha256(body.encode()).hexdigest()
+    marker = f"QJAI_PUBLISH_READY v=1 source_key=overseas-stories:01 content_sha256={digest}"
+    assert split_ready(body + marker + "\n", "overseas-stories:01") == (body, digest)
+    with pytest.raises(PublisherError, match="sourceKey"):
+        split_ready(body + marker + "\n", "overseas-stories:02")
+    with pytest.raises(PublisherError, match="sourceKey"):
+        split_ready(body + marker + "\n", "x-daily:2026-11-08")
+
+
 
 def test_notion_v2_escaped_ready_and_code_header_are_accepted():
     from mp_publisher.notion import reader_markdown

@@ -21,7 +21,7 @@ from . import x_compat
 NOTION_API = "https://api.notion.com/v1"
 NOTION_VERSION = "2026-03-11"
 READY_RE = re.compile(
-    r"^QJAI_PUBLISH_READY v=(?P<version>1) source_key=(?P<source>[a-z0-9_-]+:[0-9]{4}-[0-9]{2}(?:-[0-9]{2})?) content_sha256=(?P<sha>[0-9a-f]{64})$"
+    r"^QJAI_PUBLISH_READY v=(?P<version>1) source_key=(?P<source>(?:overseas-stories:(?:0[1-9]|[1-9][0-9]{1,4})|[a-z0-9_-]+:[0-9]{4}-[0-9]{2}(?:-[0-9]{2})?)) content_sha256=(?P<sha>[0-9a-f]{64})$"
 )
 FORBIDDEN = re.compile(r"(?:^|[^A-Z])(TEST|DUPLICATE|FAILED|DRAFT)(?:$|[^A-Z])", re.IGNORECASE)
 ARCHIVE_HEADER = re.compile(
