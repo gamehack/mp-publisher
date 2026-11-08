@@ -24,7 +24,7 @@ def parser() -> argparse.ArgumentParser:
     for name in ("preview", "dry-run", "run"):
         cmd = commands.add_parser(name)
         cmd.add_argument("--profile", required=True, choices=sorted(PROFILES))
-        cmd.add_argument("--period")
+        cmd.add_argument("--period", "--issue", dest="period", help="Overseas: serial issue (01); other profiles: period")
     status = commands.add_parser("status")
     status.add_argument("--profile", choices=sorted(PROFILES))
     health = commands.add_parser("health")
@@ -43,7 +43,7 @@ def parser() -> argparse.ArgumentParser:
     reconcile.add_argument("--authorize", action="store_true")
     backfill = commands.add_parser("backfill")
     backfill.add_argument("--profile", required=True, choices=sorted(PROFILES))
-    backfill.add_argument("--period", required=True)
+    backfill.add_argument("--period", "--issue", dest="period", required=True)
     backfill.add_argument("--authorize", action="store_true")
     legacy = commands.add_parser("import-history")
     legacy.add_argument("--file", required=True)
@@ -54,7 +54,7 @@ def parser() -> argparse.ArgumentParser:
 def _period(args: argparse.Namespace):
     profile = get_profile(args.profile)
     if profile.name == "overseas" and not args.period:
-        raise PublisherError("Overseas stories require explicit --period; no automatic date selection")
+        raise PublisherError("Overseas stories require explicit --issue (or --period 01); never select by date")
     period = args.period or default_period(profile)
     return profile, validate_period(profile, period)
 
