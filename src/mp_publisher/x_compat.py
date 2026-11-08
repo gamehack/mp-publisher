@@ -20,7 +20,12 @@ REPORT_META = (
     "原帖来源数量：", "公众号主题：",
 )
 SOURCE_LABELS = ("原帖链接：", "原始帖文链接：")
-SOURCE_URL_ROW = re.compile(r"^\s*(?:原帖链接|原始帖文链接)：\s*(https?://[\x21-\x7e]+)\s*$")
+# Grok sometimes annotates a repeated source with "（同上）". That note is
+# editorial metadata, not part of the URL. Accept only this known suffix so
+# unrelated text and extra URLs still fail closed instead of being discarded.
+SOURCE_URL_ROW = re.compile(
+    r"^\s*(?:原帖链接|原始帖文链接)：\s*(https?://[\x21-\x7e]+?)\s*(?:（同上）)?\s*$"
+)
 ALLOWED_TYPES = {
     "paragraph", "heading_1", "heading_2", "heading_3", "bulleted_list_item",
     "numbered_list_item", "quote", "divider", "to_do",
