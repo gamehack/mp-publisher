@@ -105,3 +105,26 @@ sudo systemctl enable --now mp-publisher-overseas.timer
 ```
 
 新 timer **不会**因为代码合并或安装 unit 而自动启用。人工 `--period NN` 仍可应急使用，和定时器共用 SQLite 防重台账。
+
+## 五专栏封面池 V1（可逐栏目启用，2026-11-09）
+
+微信图文草稿仍为每篇 **一个永久素材 `thumb_media_id`**，可在同一篇中另行传 `pic_crop_235_1`、`pic_crop_1_1`（横图与方图裁切）。这不是图片消息 `newspic` 的 20 图能力。
+
+现行老配置 `WECHAT_THUMB_MEDIA_ID_X`、`WECHAT_THUMB_MEDIA_ID_PRODUCTHUNT`、`WECHAT_THUMB_MEDIA_ID_TRUSTMRR`、`WECHAT_THUMB_MEDIA_ID_OVERSEAS` 保留。**不配置 `WECHAT_COVER_POOL_JSON` 时，行为和过去完全一致**；即使只配置某个专栏的素材池，其余栏目继续使用旧封面，不会发生突变。
+
+图片先在受控服务器通过微信永久素材接口上传，获得每张独立的 `media_id`，然后只在受限权限的服务器 `/etc/mp-publisher/publisher.env` 增加一行私有 JSON（以下仅为占位符，不能直接用于生产）：
+
+```dotenv
+WECHAT_COVER_POOL_JSON='{"overseas":["OS_ID_1","OS_ID_2","OS_ID_3"],"x":["XI_ID_1","XI_ID_2","XI_ID_3"],"producthunt":["PH_ID_1","PH_ID_2","PH_ID_3"],"trustmrr_weekly":["TW_ID_1","TW_ID_2","TW_ID_3"],"trustmrr_monthly":["TM_ID_1","TM_ID_2","TM_ID_3"]}'
+```
+
+15 张素材编号：
+- 海外创业志：OS-01~03（创业故事）
+- X 商业情报：XI-01~03（商业信号）
+- 产品猎人日报：PH-01~03（新品发现）
+- TrustMRR 周报：TW-01~03（增长周榜）
+- TrustMRR 月报：TM-01~03（增长月报）
+
+`source_key` 经 SHA-256 固定映射到三张素材之一，相同文章重试仍然选同一张。TrustMRR 根据 `weekly:`/`monthly:` 选择不同池。启用素材池后，会发给草稿接口 `pic_crop_235_1=0_0_1_1` 和 `pic_crop_1_1=0.2872_0_0.7128_1`；裁剪参数必须先在公众号实际草稿中验证，再逐个开启池。**media_id 不得提交 GitHub、写入日志或 JSON 测试快照。**
+
+原创场景图的完整 JPEG 套件由 ChatGPT 会话交付，GitHub 仓库存放对应视觉清单 `assets/cover-pool-v1-manifest.json`，上传素材和启用配置由授权运维端单独执行。旧草稿、SQLite 去重状态和 timer 不变，不运行 `freepublish` 或群发。

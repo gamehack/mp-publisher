@@ -6,6 +6,7 @@ import httpx
 
 from . import config
 from .channels import create_wechat_draft
+from .covers import select_cover
 from .errors import PublisherError
 from .models import Article
 from .notion import NotionReader, load_article
@@ -38,11 +39,14 @@ def run(profile: Profile, period: str, store: StateStore, *, article: Article | 
         return RunResult(article, "ALREADY_DONE")
     if previous != "PENDING":
         raise PublisherError(f"wechat=state {previous} requires reconciliation")
+    cover = select_cover(article)
     create_wechat_draft(
         article,
         store,
         app_id=config.required("WECHAT_APP_ID"),
         app_secret=config.required("WECHAT_APP_SECRET"),
-        cover_media_id=config.cover_media_id(profile.name),
+        cover_media_id=cover.media_id,
+        crop_wide=cover.crop_wide,
+        crop_square=cover.crop_square,
     )
     return RunResult(article, "SUCCESS")

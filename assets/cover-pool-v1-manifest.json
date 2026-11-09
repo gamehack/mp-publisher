@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "source": "AI-generated original Qianjie AI 15 cover pack",
+  "dimensions": {
+    "width": 900,
+    "height": 383
+  },
+  "crop_235_1": "0_0_1_1",
+  "crop_1_1": "0.2872_0_0.7128_1",
+  "variants": {
+    "overseas": [
+      [
+        "OS-01",
+        "深夜窗边的独立开发者"
+      ],
+      [
+        "OS-02",
+        "温暖个人工作室"
+      ],
+      [
+        "OS-03",
+        "旅行途中创业者"
+      ]
+    ],
+    "x": [
+      [
+        "XI-01",
+        "全球商业信号"
+      ],
+      [
+        "XI-02",
+        "AI社交信号"
+      ],
+      [
+        "XI-03",
+        "全球创业网络"
+      ]
+    ],
+    "producthunt": [
+      [
+        "PH-01",
+        "AI新品发射"
+      ],
+      [
+        "PH-02",
+        "新品产品卡"
+      ],
+      [
+        "PH-03",
+        "AI工具集合"
+      ]
+    ],
+    "trustmrr_weekly": [
+      [
+        "TW-01",
+        "收入增长曲线"
+      ],
+      [
+        "TW-02",
+        "增长排行榜"
+      ],
+      [
+        "TW-03",
+        "MRR仪表盘"
+      ]
+    ],
+    "trustmrr_monthly": [
+      [
+        "TM-01",
+        "月度收入趋势"
+      ],
+      [
+        "TM-02",
+        "月度收入日历"
+      ],
+      [
+        "TM-03",
+        "经营数据分析"
+      ]
+    ]
+  },
+  "security": "Media IDs are private; never store them in GitHub. Cover pool activation requires verified WeChat permanent media uploads."
+}

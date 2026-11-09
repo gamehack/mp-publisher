@@ -25,14 +25,16 @@ def _safe_json(response: httpx.Response) -> dict[str, Any]:
     return value
 
 
-def wechat_payload(article: Article, cover: str, author: str = "潜界 AI") -> dict[str, object]:
+def wechat_payload(article: Article, cover: str, author: str = "潜界 AI",
+                   *, crop_wide: str | None = None, crop_square: str | None = None
+                   ) -> dict[str, object]:
     if not cover.strip():
         raise PublisherError("WeChat permanent cover media_id is required")
     if not article.title or len(article.title.encode("utf-8")) > 64:
         raise PublisherError("WeChat title exceeds 64 UTF-8 bytes")
     if not article.summary.strip() or not article.wechat_html.strip():
         raise PublisherError("WeChat article content is incomplete")
-    return {"articles": [{
+    entry: dict[str, object] = {
         "title": article.title,
         "author": author,
         "digest": article.summary[:120],
@@ -40,7 +42,12 @@ def wechat_payload(article: Article, cover: str, author: str = "潜界 AI") -> d
         "thumb_media_id": cover.strip(),
         "need_open_comment": 1,
         "only_fans_can_comment": 0,
-    }]}
+    }
+    if crop_wide is not None:
+        entry["pic_crop_235_1"] = crop_wide
+    if crop_square is not None:
+        entry["pic_crop_1_1"] = crop_square
+    return {"articles": [entry]}
 
 
 def check_wechat_credentials(*, app_id: str, app_secret: str, client: httpx.Client) -> str:
@@ -68,10 +75,13 @@ def create_wechat_draft(
     app_id: str,
     app_secret: str,
     cover_media_id: str,
+    crop_wide: str | None = None,
+    crop_square: str | None = None,
     client: httpx.Client | None = None,
 ) -> str:
     """Make at most one draft/add attempt; ambiguous outcomes remain UNKNOWN."""
-    payload = wechat_payload(article, cover_media_id)
+    payload = wechat_payload(article, cover_media_id,
+                             crop_wide=crop_wide, crop_square=crop_square)
     session = client or httpx.Client(timeout=30, follow_redirects=False)
     try:
         token = check_wechat_credentials(app_id=app_id, app_secret=app_secret, client=session)
