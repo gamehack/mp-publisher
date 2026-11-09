@@ -91,7 +91,7 @@ def test_overseas_sources_remain_in_notion_snapshot_but_are_removed_from_wechat_
         "档案编号：internal-123；已引用 3 条原始事实。\n"
     )
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
-    marker = f"QJAI_PUBLISH_READY v=1 source_key=overseas-stories:01 content_sha256={digest}\\n"
+    marker = f"QJAI_PUBLISH_READY v=1 source_key=overseas-stories:01 content_sha256={digest}\n"
 
     def handler(request: httpx.Request):
         path = request.url.path
