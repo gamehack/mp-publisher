@@ -29,6 +29,9 @@ ARCHIVE_HEADER = re.compile(
     r"\s*原文 SHA-256：(?:`[0-9a-f]{64}`|<code>[0-9a-f]{64}</code>)。\s*$"
 )
 X_FOOTER = "关注公众号「潜界 AI」，持续获取值得关注的 AI 创业机会与实用方法。"
+OVERSEAS_SOURCES_HEADING = re.compile(
+    r"^\s{0,3}(?:#{1,6}\s+)?(?:\*\*|__)?资料来源(?:\*\*|__)?(?:\s*[：:].*)?\s*$"
+)
 
 
 def normalize_uuid(value: str) -> str:
@@ -319,6 +322,14 @@ def wechat_markdown(profile: str, reader_body: str) -> str:
             line for line in lines
             if not re.match(r"^\s*[-*]\s*资料来源：", line)
         ]
+    elif profile == "overseas":
+        # Source references are part of the canonical Notion record and READY
+        # hash, but are internal editorial metadata, not reader-facing content.
+        # Remove the final section only from the WeChat rendering.
+        for index, line in enumerate(lines):
+            if OVERSEAS_SOURCES_HEADING.fullmatch(line.strip()):
+                lines = lines[:index]
+                break
     return "\n".join(lines).strip() + "\n"
 
 
