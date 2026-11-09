@@ -127,4 +127,6 @@ WECHAT_COVER_POOL_JSON='{"overseas":["OS_ID_1","OS_ID_2","OS_ID_3"],"x":["XI_ID_
 
 `source_key` 经 SHA-256 固定映射到三张素材之一，相同文章重试仍然选同一张。TrustMRR 根据 `weekly:`/`monthly:` 选择不同池。启用素材池后，会发给草稿接口 `pic_crop_235_1=0_0_1_1` 和 `pic_crop_1_1=0.2872_0_0.7128_1`；裁剪参数必须先在公众号实际草稿中验证，再逐个开启池。**media_id 不得提交 GitHub、写入日志或 JSON 测试快照。**
 
-原创场景图的完整 JPEG 套件由 ChatGPT 会话交付，GitHub 仓库存放对应视觉清单 `assets/cover-pool-v1-manifest.json`，上传素材和启用配置由授权运维端单独执行。旧草稿、SQLite 去重状态和 timer 不变，不运行 `freepublish` 或群发。
+原创的 15 张 JPEG、SHA-256 文件清单及**默认 dry-run 的永久素材上传脚本**已版本化打包在 `assets/cover-pool-v1-deploy.zip`，公开清单在 `assets/cover-pool-v1-manifest.json`。部署前先用 `unzip -t` 和 `upload_to_wechat.py --pack <解压路径>` 只读验包，确认图片均符合 JPEG、大小和 SHA-256 限制。由受控硅谷主机显式 `--authorize-upload` 上传微信永久素材，每成功一张就写私有 0600 检查点；上传成功后生成独立 0600 的 `cover-pool.env.fragment`，**不自动合并生产环境配置**，需确认完整 15 张及微信裁剪兼容性后再启用。
+
+素材 ID 和上传检查点不能提交仓库。旧草稿、SQLite 去重状态和 timer 不变，不运行 `freepublish` 或群发。
