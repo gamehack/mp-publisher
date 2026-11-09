@@ -78,6 +78,67 @@ def test_parent_validation_and_full_markdown_read():
     reader.close()
 
 
+
+def test_overseas_sources_remain_in_notion_snapshot_but_are_removed_from_wechat_draft():
+    parent = PROFILES["overseas"].parent_id
+    child = "11111111-1111-4111-8111-111111111111"
+    title = "海外创业志 01|测试故事"
+    body = (
+        "# 测试故事\n\n"
+        "正文中提到资料来源字段，但这句话必须保留。\n\n"
+        "## 资料来源\n\n"
+        "https://example.com/story\n\n"
+        "档案编号：internal-123；已引用 3 条原始事实。\n"
+    )
+    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    marker = f"QJAI_PUBLISH_READY v=1 source_key=overseas-stories:01 content_sha256={digest}\\n"
+
+    def handler(request: httpx.Request):
+        path = request.url.path
+        if path == f"/v1/blocks/{parent}/children":
+            return httpx.Response(200, json={
+                "results": [{
+                    "id": child,
+                    "type": "child_page",
+                    "child_page": {"title": title},
+                }],
+                "has_more": False,
+            })
+        if path == f"/v1/pages/{child}":
+            return httpx.Response(200, json={
+                "parent": {"type": "page_id", "page_id": parent},
+                "properties": {
+                    "title": {"type": "title", "title": [{"plain_text": title}]}
+                },
+            })
+        if path == f"/v1/pages/{child}/markdown":
+            return httpx.Response(200, json={
+                "object": "page_markdown",
+                "markdown": body + marker,
+                "truncated": False,
+                "unknown_block_ids": [],
+                "warnings": [],
+            })
+        raise AssertionError(path)
+
+    reader = NotionReader("not-a-real-secret", transport=httpx.MockTransport(handler))
+    article = load_article(reader, PROFILES["overseas"], "01")
+    reader.close()
+
+    # Notion-facing source of truth and READY content remain complete.
+    assert article.body_markdown == body
+    assert "## 资料来源" in article.body_markdown
+    assert "https://example.com/story" in article.body_markdown
+    assert "档案编号：internal-123" in article.body_markdown
+
+    # Only the rendered WeChat draft omits the internal source section.
+    assert "正文中提到资料来源字段" in article.wechat_html
+    assert "资料来源</h2>" not in article.wechat_html
+    assert "https://example.com/story" not in article.wechat_html
+    assert "internal-123" not in article.wechat_html
+
+
+
 def test_wrong_direct_parent_stops_before_markdown():
     parent = PROFILES["producthunt"].parent_id
     child = "11111111-1111-4111-8111-111111111111"
