@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from .errors import PublisherError, UnknownDelivery
+from .cover_quality import validate_crop
 from .models import Article
 from .state import StateStore
 
@@ -44,9 +45,9 @@ def wechat_payload(article: Article, cover: str, author: str = "潜界 AI",
         "only_fans_can_comment": 0,
     }
     if crop_wide is not None:
-        entry["pic_crop_235_1"] = crop_wide
+        entry["pic_crop_235_1"] = validate_crop(crop_wide, 2.35)
     if crop_square is not None:
-        entry["pic_crop_1_1"] = crop_square
+        entry["pic_crop_1_1"] = validate_crop(crop_square, 1.0)
     return {"articles": [entry]}
 
 
