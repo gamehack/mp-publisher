@@ -152,15 +152,35 @@ python scripts/upload_cover_pool_v2.py --pack assets/cover-pool-v2
 python -m pytest tests/test_cover_assets_v2.py tests/test_covers.py tests/test_cover_quality.py -q
 ```
 
-上传工具默认只验包，不访问微信；检查文件名、JPEG 尺寸、大小、SHA-256、栏目和 15 张完整性。受控服务器在 IP 白名单和微信凭据齐备后，才允许：
+上传工具默认只验包，不访问微信；检查文件名、JPEG 尺寸、大小、SHA-256、栏目和 15 张完整性。生产服务器应使用已有 Docker Compose 镜像、私有 `env_file` 和 `/data` 卷运行上传器，避免在宿主机临时导出微信密钥：
 
 ```bash
-sudo --preserve-env=WECHAT_APP_ID,WECHAT_APP_SECRET \
-  python scripts/upload_cover_pool_v2.py --pack assets/cover-pool-v2 \
-  --state /var/lib/mp-publisher/cover-media-v2-uploads.json --authorize-upload
+cd /opt/mp-publisher
+sudo docker compose run --rm --no-deps --volume /opt/mp-publisher:/workspace:ro \
+  --entrypoint python mp-publisher /workspace/scripts/upload_cover_pool_v2.py \
+  --pack /workspace/assets/cover-pool-v2 --state /data/cover-media-v2-uploads.json
+
+# 只在确认微信白名单、私有凭据和离线验包通过后执行一次；不建草稿
+sudo docker compose run --rm --no-deps --volume /opt/mp-publisher:/workspace:ro \
+  --entrypoint python mp-publisher /workspace/scripts/upload_cover_pool_v2.py \
+  --pack /workspace/assets/cover-pool-v2 --state /data/cover-media-v2-uploads.json \
+  --authorize-upload
 ```
 
-生产操作需要先备份现有 `/etc/mp-publisher/publisher.env`，并在受限权限下读取 uploader 创建的 `cover-pool.env.fragment`。它只生成私有 `WECHAT_COVER_POOL_JSON` 值，**不自动改生产 .env，不自动启 timer**。上传失败或不确定时会写 `UNKNOWN` 检查点并停止，不能无脑重试。
+上传器只生成私有 `WECHAT_COVER_POOL_JSON` 配置片段，**不会自动改生产 `.env`，不会启 timer**。上传失败或不确定时会写 `UNKNOWN` 检查点并停止，不能无脑重试。
+
+15 张素材均返回 `UPLOADS_CONFIRMED` 后，使用无需额外 Python 依赖的安全激活脚本。它在进程内核对私有上传检查点、素材清单及环境片段，不打印凭据或 `media_id`，默认只读；授权后先创建一个 root-only 备份，再原子更新旧环境文件中的封面池和语义路由设置，保留其他键：
+
+```bash
+cd /opt/mp-publisher
+sudo python3 scripts/activate_cover_pool_v2.py
+# 必须先确认 DRY_RUN_OK，再显式授权：
+sudo python3 scripts/activate_cover_pool_v2.py --authorize-activation
+# 预期：ACTIVATED, pool_count=5, materials=15, routing=semantic
+sudo docker compose run --rm --no-deps mp-publisher health
+```
+
+生产定时任务每次启动新的 Compose one-shot 容器，会自动读取更新后的 `/etc/mp-publisher/publisher.env`，不用重启 systemd timer。回滚时将该目录中新生成的 `publisher.env.pre-cover-v2-*.bak` 中**本次对应**的备份恢复成原私有配置；先确认文件权限、目标与备份关联，不清理 SQLite 或历史草稿。`ALREADY_ACTIVE` 表示重复激活时未产生第二份备份。
 
 ### 新增两种可回滚的路由配置
 
