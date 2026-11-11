@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "created_at": "2026-11-11",
+  "source": "15 individually generated original Qianjie AI editorial covers",
+  "image_dimensions": {"width": 900, "height": 383},
+  "crop_235_1": "0_0_1_1",
+  "crop_1_1": "0.2872_0_0.7128_1",
+  "in_image_text": false,
+  "visual_rule": "No central poster text; central square keeps one readable subject; bottom 18 percent reserved for WeChat title",
+  "assets": [
+    {"id":"OS2-01","profile":"overseas","scene":"深夜窗边独立开发者","cover_file":"covers/OS2-01.jpg","sha256":"0333d37e0049e514e98598785c1cc99a5b08ad8ee28fe5bdccc155086cd6aa65"},
+    {"id":"OS2-02","profile":"overseas","scene":"早晨居家工作室","cover_file":"covers/OS2-02.jpg","sha256":"1c59fa4c1e2e9b9e3ef250893614931e1227f2e772ba13ec853daf99f187e14b"},
+    {"id":"OS2-03","profile":"overseas","scene":"咖啡馆远程创业者","cover_file":"covers/OS2-03.jpg","sha256":"99877af110b4fbc638b9a0d7fe3e2bedfa3551938f26276b27eccd55f0fba177"},
+    {"id":"XI2-01","profile":"x","scene":"全球商业信号球","cover_file":"covers/XI2-01.jpg","sha256":"f1a7f6ce5322c2759119a3cf26d23d4101405599da112c4d967981fe8610cb9e"},
+    {"id":"XI2-02","profile":"x","scene":"AI社交网络脉冲","cover_file":"covers/XI2-02.jpg","sha256":"6c14718a2cc1f09ea185a5fd90a37d50e2d31c4a851818bbd63f1c41bd08186f"},
+    {"id":"XI2-03","profile":"x","scene":"跨国创业网络","cover_file":"covers/XI2-03.jpg","sha256":"ce7f68a07794840b386bf3bf1d2732891387f237a42c2246e7858e159061dedd"},
+    {"id":"PH2-01","profile":"producthunt","scene":"移动端AI新品","cover_file":"covers/PH2-01.jpg","sha256":"6591e760dae7012f561d4a46579376ff9d867216a38af9dd6d39c39944c4c339"},
+    {"id":"PH2-02","profile":"producthunt","scene":"开发者软件产品","cover_file":"covers/PH2-02.jpg","sha256":"2fcf98b9cf1f5087239d91cdffb1cad420d0e4d4657599ca2cf58d73e66cbc61"},
+    {"id":"PH2-03","profile":"producthunt","scene":"生产力应用工具","cover_file":"covers/PH2-03.jpg","sha256":"30d8f6b311a10abd0705797ac0b4c7a861e07fdb8600b766cb600b1f15e6058d"},
+    {"id":"TW2-01","profile":"trustmrr_weekly","scene":"快速收入增长曲线","cover_file":"covers/TW2-01.jpg","sha256":"6b2de906ac2bd579179c7740a0d26c6fcc838f7a3e0cce1efebb4f36c6f248f0"},
+    {"id":"TW2-02","profile":"trustmrr_weekly","scene":"成长排行榜","cover_file":"covers/TW2-02.jpg","sha256":"28f21f800516c14e45917c4a2f95c5dd3a9e4511ec861398f8155863819fddcb"},
+    {"id":"TW2-03","profile":"trustmrr_weekly","scene":"每周MRR仪表盘","cover_file":"covers/TW2-03.jpg","sha256":"45304ed0e297f92ead2164bdcfe67b9afa79e71da3b1f407642674721b1cb843"},
+    {"id":"TM2-01","profile":"trustmrr_monthly","scene":"月度营收趋势","cover_file":"covers/TM2-01.jpg","sha256":"29ee95f23207f7673dae0d52b2ac0510245e3c5ba172f52a45874b19e32fef7d"},
+    {"id":"TM2-02","profile":"trustmrr_monthly","scene":"月度增长日历","cover_file":"covers/TM2-02.jpg","sha256":"c78fc7d0a391cc57b66ba7645dbfe19df836f64b3cf7139ba742eaf2a267b018"},
+    {"id":"TM2-03","profile":"trustmrr_monthly","scene":"月度经营看板","cover_file":"covers/TM2-03.jpg","sha256":"8bc08a3c6c6c876e05e544356490e01adfbec453472258b9e32d5b3010f412c2"}
+  ]
+}

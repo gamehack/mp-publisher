@@ -79,3 +79,52 @@ def test_unconfigured_pool_falls_back_independently(monkeypatch):
 def test_invalid_trustmrr_period_fails(monkeypatch):
     with pytest.raises(PublisherError, match="period"):
         pool_id_for(story("trustmrr", "bogus", "trustmrr:bogus"))
+
+
+def test_semantic_routing_picks_subject_over_hash(monkeypatch):
+    monkeypatch.setenv("WECHAT_COVER_POOL_JSON", json.dumps({
+        "overseas": ["material-os-01", "material-os-02", "material-os-03"]
+    }))
+    monkeypatch.setenv("WECHAT_COVER_ROUTING", "semantic")
+    article = Article("overseas", "05", "overseas-stories:05", "page", "original",
+                      "海外创业志 05｜一名开发者如何写出代码", "开发一款 SaaS 工具",
+                      "body", "<p>body</p>", "a" * 64)
+    assert select_cover(article).variant_id == "OS-01"
+
+
+def test_semantic_no_match_keeps_original_hash_choice(monkeypatch):
+    monkeypatch.setenv("WECHAT_COVER_POOL_JSON", json.dumps({
+        "overseas": ["material-os-01", "material-os-02", "material-os-03"]
+    }))
+    article = story(source_key="overseas-stories:42")
+    original = select_cover(article)
+    monkeypatch.setenv("WECHAT_COVER_ROUTING", "semantic")
+    assert select_cover(article) == original
+
+
+def test_custom_cover_override_wins_and_is_private(monkeypatch):
+    monkeypatch.setenv("WECHAT_COVER_POOL_JSON", json.dumps({
+        "overseas": ["material-os-01", "material-os-02", "material-os-03"]
+    }))
+    monkeypatch.setenv("WECHAT_COVER_OVERRIDES_JSON", json.dumps({
+        "overseas-stories:01": "CUSTOM_MEDIA_ID_123"
+    }))
+    choice = select_cover(story())
+    assert choice.media_id == "CUSTOM_MEDIA_ID_123"
+    assert choice.variant_id == "CUSTOM"
+    assert choice.crop_wide == CROP_WIDE
+    assert choice.crop_square == CROP_SQUARE
+    assert select_cover(story(source_key="overseas-stories:02")).variant_id != "CUSTOM"
+
+
+@pytest.mark.parametrize("key,value", [
+    ("WECHAT_COVER_ROUTING", "random"),
+    ("WECHAT_COVER_OVERRIDES_JSON", "invalid-json"),
+    ("WECHAT_COVER_OVERRIDES_JSON", '{"overseas-stories:01":"space id"}'),
+    ("WECHAT_COVER_OVERRIDES_JSON", "[1,2]"),
+])
+def test_invalid_v2_configuration_fails_closed_without_echo(monkeypatch, key, value):
+    monkeypatch.setenv(key, value)
+    with pytest.raises(PublisherError) as err:
+        select_cover(story())
+    assert value not in str(err.value)

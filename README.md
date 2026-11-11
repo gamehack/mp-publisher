@@ -130,3 +130,51 @@ WECHAT_COVER_POOL_JSON='{"overseas":["OS_ID_1","OS_ID_2","OS_ID_3"],"x":["XI_ID_
 原创的 15 张 JPEG、SHA-256 文件清单及**默认 dry-run 的永久素材上传脚本**已版本化打包在 `assets/cover-pool-v1-deploy.zip`，公开清单在 `assets/cover-pool-v1-manifest.json`。部署前先用 `unzip -t` 和 `upload_to_wechat.py --pack <解压路径>` 只读验包，确认图片均符合 JPEG、大小和 SHA-256 限制。由受控硅谷主机显式 `--authorize-upload` 上传微信永久素材，每成功一张就写私有 0600 检查点；上传成功后生成独立 0600 的 `cover-pool.env.fragment`，**不自动合并生产环境配置**，需确认完整 15 张及微信裁剪兼容性后再启用。
 
 素材 ID 和上传检查点不能提交仓库。旧草稿、SQLite 去重状态和 timer 不变，不运行 `freepublish` 或群发。
+
+## 封面 V2：手机小图可读性试验（2026-11-11）
+
+上一版 15 张封面中央有较大的栏目海报文字，在微信手机端 1:1 小图里难以阅读，也容易和微信在横图底部自动叠加的文章标题重复。V2 **不是**在原图上单纯放大文字，而是重新生成五个视觉场景池，每池 3 张、共 15 张（`assets/cover-pool-v2/covers/`）：
+
+| 栏目池 | 场景顺序（与私有 `WECHAT_COVER_POOL_JSON` 数组对应） |
+|---|---|
+| `overseas` | 深夜独立开发者 / 居家工作室 / 咖啡馆远程创作者 |
+| `x` | 全球商业信号 / AI 社交网络 / 跨境创业网络 |
+| `producthunt` | 移动端新品 / 开发者软件 / 生产力工具 |
+| `trustmrr_weekly` | 快速增长 / 排行榜 / MRR 看板 |
+| `trustmrr_monthly` | 月度趋势 / 月度进展 / 经营看板 |
+
+每张 JPEG 900×383，体积低于 64 KiB。去掉了中央玻璃面板和多行文字，中心保留易于识别的单一主体，底部为微信自动标题留出空间。清单 `assets/cover-pool-v2/manifest.json` 含每张图片的 SHA-256；人工已按 2.35:1 横图和约 100×100 的中心方图分别审阅。它们是原创生成的示意性栏目场景，不是某位真实创业者或某款产品的新闻照片，不应标成纪实人物肖像。
+
+### 本地只读验收
+
+```bash
+python scripts/upload_cover_pool_v2.py --pack assets/cover-pool-v2
+python -m pytest tests/test_cover_assets_v2.py tests/test_covers.py tests/test_cover_quality.py -q
+```
+
+上传工具默认只验包，不访问微信；检查文件名、JPEG 尺寸、大小、SHA-256、栏目和 15 张完整性。受控服务器在 IP 白名单和微信凭据齐备后，才允许：
+
+```bash
+sudo --preserve-env=WECHAT_APP_ID,WECHAT_APP_SECRET \
+  python scripts/upload_cover_pool_v2.py --pack assets/cover-pool-v2 \
+  --state /var/lib/mp-publisher/cover-media-v2-uploads.json --authorize-upload
+```
+
+生产操作需要先备份现有 `/etc/mp-publisher/publisher.env`，并在受限权限下读取 uploader 创建的 `cover-pool.env.fragment`。它只生成私有 `WECHAT_COVER_POOL_JSON` 值，**不自动改生产 .env，不自动启 timer**。上传失败或不确定时会写 `UNKNOWN` 检查点并停止，不能无脑重试。
+
+### 新增两种可回滚的路由配置
+
+- 不设置 `WECHAT_COVER_ROUTING` 或设为 `hash`：保留按 `source_key` SHA-256 选 3 张之一的既有逻辑。此时旧封面池和旧栏目配置行为不变。
+- `WECHAT_COVER_ROUTING=semantic`：依据文章标题与摘要中的栏目特定词选择一个场景。无明显关键词或得分并列时仍按 `source_key` 稳定哈希回退。不调用付费模型，不随日期随机变化。
+- 可选 `WECHAT_COVER_OVERRIDES_JSON='{"overseas-stories:05":"PRIVATE_MEDIA_ID"}'`：对某篇文章按完整来源键使用已经上传的专属永久素材 ID，优先于封面池。专属图片也必须是 **900×383 中心安全构图**，因为继续使用 V2 同一组横图/方图裁剪参数。只允许写在私有生产环境，不能提交到 GitHub。
+
+先逐栏目启用新的 `WECHAT_COVER_POOL_JSON`，核对在公众号草稿中横图和小图都显示正常，再考虑开启 `semantic`。生产发布仍由原来 systemd timer 驱动，`draft/add` 行为与幂等 SQLite 不变。已经 SUCCESS 的文章不会因封面变更重新投递。
+
+### 建议观察 3～5 天并保留回滚条件
+
+1. 每日检查新增公众号草稿的大图及 1:1 小图：能否识别主体、白色自动标题是否清楚、栏目是否区分明显。
+2. 对比不同期号是否发生同一张图重复过密；语义不匹配记录为选图问题，不要立即重投草稿。
+3. 检查 `mp-publisher health`、各 profile 状态以及 `UNKNOWN`，保证新功能没有新增失败投递。
+4. 如果图文封面有异常，先恢复旧的私有 `WECHAT_COVER_POOL_JSON` 值，并把 `WECHAT_COVER_ROUTING=hash`，随后做离线 `dry-run` 与微信草稿人工核对。
+
+**边界：**V2 静态场景池可以增强文章与画面的相关度，但不能保证每期都出现文章中的真实人物/产品。后续若需要逐篇 AI 生成，需要独立的图像生产步骤先产出并审核素材，再把每期的永久素材 ID 安全地加入精确覆盖表；不要在 `draft/add` 的幂等写入过程里临时调用图像服务。
