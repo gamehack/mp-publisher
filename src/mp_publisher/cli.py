@@ -11,7 +11,7 @@ from .channels import check_wechat_credentials
 from .errors import PublisherError, SkipArticle
 from .legacy import import_file
 from .operations import backup_state, inspect_state
-from .profiles import PROFILES, default_period, get_profile, scheduled_periods, validate_period
+from .profiles import PROFILES, default_period, get_profile, scheduled_periods, source_key, validate_period
 from .notion import NotionReader
 from .runner import read_article, run
 from .state import StateStore
@@ -61,6 +61,21 @@ def _period(args: argparse.Namespace):
     return profile, validate_period(profile, period)
 
 
+def _run_and_record(profile, period: str, store: StateStore):
+    try:
+        return run(profile, period, store)
+    except SkipArticle:
+        # Keep a minimal, non-content operational signal. The article is not
+        # snapshotted and no WeChat API request has been made.
+        store.record_skipped(
+            profile=profile.name,
+            period=period,
+            source_key=source_key(profile, period),
+            reason_code="NOTION_NOT_READY",
+        )
+        raise
+
+
 def execute(args: argparse.Namespace) -> dict[str, object]:
     config.load_environment(args.env_file)
     store = StateStore(args.state or config.state_path())
@@ -83,7 +98,7 @@ def execute(args: argparse.Namespace) -> dict[str, object]:
             if store.delivery_state(key, "wechat") == "SUCCESS":
                 continue
             try:
-                outcome = run(PROFILES["overseas"], issue, store)
+                outcome = _run_and_record(PROFILES["overseas"], issue, store)
                 return {**outcome.article.public_summary(), "status": "COMPLETED", "wechat": outcome.wechat}
             except SkipArticle as exc:
                 return {"profile": "overseas", "period": issue, "status": "SKIPPED", "reason": str(exc)}
@@ -101,13 +116,13 @@ def execute(args: argparse.Namespace) -> dict[str, object]:
         # scheduled first-Monday TrustMRR invocation, attempt both weekly and
         # monthly independently; missing/not-READY monthly content is expected.
         if args.period is not None or profile.name != "trustmrr":
-            outcome = run(profile, period, store)
+            outcome = _run_and_record(profile, period, store)
             return {**outcome.article.public_summary(), "status": "COMPLETED", "wechat": outcome.wechat}
         outcomes: list[dict[str, object]] = []
         failures = 0
         for scheduled_period in scheduled_periods(profile):
             try:
-                result = run(profile, scheduled_period, store)
+                result = _run_and_record(profile, scheduled_period, store)
                 outcomes.append({"period": scheduled_period, "status": "COMPLETED",
                                  "source_key": result.article.source_key,
                                  "wechat": result.wechat})
@@ -163,9 +178,11 @@ def main() -> None:
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         if result.get("status") in {"FAILED", "ACTION_REQUIRED"}:
             raise SystemExit(2)
+        if result.get("status") == "SKIPPED" and result.get("profile") != "overseas":
+            raise SystemExit(3)
     except SkipArticle as exc:
         print(json.dumps({"status": "SKIPPED", "reason": str(exc)}, ensure_ascii=False), file=sys.stderr)
-        raise SystemExit(0)
+        raise SystemExit(3)
     except (PublisherError, OSError, ValueError) as exc:
         print(json.dumps({"status": "FAILED", "reason": str(exc)}, ensure_ascii=False), file=sys.stderr)
         raise SystemExit(2)
