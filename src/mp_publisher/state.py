@@ -85,6 +85,17 @@ class StateStore:
                     imported_at TEXT NOT NULL,
                     PRIMARY KEY (origin, legacy_key)
                 );
+                CREATE TABLE IF NOT EXISTS execution_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source_key TEXT NOT NULL,
+                    profile TEXT NOT NULL,
+                    period TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('SKIPPED')),
+                    reason_code TEXT NOT NULL,
+                    occurred_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_execution_events_profile_period
+                    ON execution_events(profile, period, occurred_at DESC);
             """)
             row = db.execute("SELECT version FROM schema_meta").fetchone()
             if row is None:
@@ -229,3 +240,23 @@ class StateStore:
         sql += " ORDER BY a.source_key,d.channel"
         with self.connect() as db:
             return [dict(row) for row in db.execute(sql, args)]
+
+    def record_skipped(self, *, profile: str, period: str, source_key: str,
+                       reason_code: str = "NOTION_NOT_READY") -> None:
+        """Persist a safe, minimal record when a scheduled article is not READY.
+
+        This is separate from delivery state: no article snapshot or WeChat
+        request is created for a missing Notion page.
+        """
+        if not all(isinstance(value, str) and value for value in (profile, period, source_key)):
+            raise ValueError("Skipped execution identity is incomplete")
+        if reason_code != "NOTION_NOT_READY":
+            raise ValueError("Unsupported skip reason code")
+        self.initialize()
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO execution_events(source_key,profile,period,status,reason_code,occurred_at)"
+                " VALUES (?,?,?,'SKIPPED',?,?)",
+                (source_key, profile, period, reason_code, utcnow()),
+            )
+            db.commit()

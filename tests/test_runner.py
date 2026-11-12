@@ -98,3 +98,36 @@ def test_master_switch_fail_closed(tmp_path, monkeypatch):
     with pytest.raises(PublisherError, match="disabled"):
         run(PROFILES["producthunt"], "2026-11-05", store, article=article())
     assert not store.path.exists()
+
+def test_cli_records_missing_ready_for_ops_and_exits_nonzero(tmp_path, monkeypatch):
+    import sqlite3
+    import sys
+    from mp_publisher import cli
+
+    switches(monkeypatch)
+    state_path = tmp_path / "state.sqlite"
+
+    def missing_ready(*args, **kwargs):
+        raise SkipArticle("Expected Notion article is missing")
+
+    monkeypatch.setattr("mp_publisher.runner.read_article", missing_ready)
+    monkeypatch.setattr(sys, "argv", [
+        "mp-publisher", "--state", str(state_path),
+        "run", "--profile", "producthunt", "--period", "2026-11-06",
+    ])
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 3
+
+    with sqlite3.connect(state_path) as db:
+        assert db.execute("SELECT count(*) FROM articles").fetchone()[0] == 0
+        row = db.execute(
+            "SELECT source_key,profile,period,status,reason_code "
+            "FROM execution_events ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    assert row == (
+        "producthunt:2026-11-06", "producthunt", "2026-11-06",
+        "SKIPPED", "NOTION_NOT_READY",
+    )
+
