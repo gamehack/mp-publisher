@@ -44,9 +44,17 @@ def test_auto_stops_at_first_not_ready(monkeypatch):
         def overseas_issues(self, *_): return ("01", "02", "03")
         def close(self): pass
     monkeypatch.setattr(cli, "NotionReader", Reader)
-    monkeypatch.setattr(cli, "StateStore", lambda *_: SimpleNamespace(delivery_state=lambda *_: "SUCCESS"))
     # First not-yet-SUCCESS is 02, even if 03 might be READY.
-    monkeypatch.setattr(cli, "StateStore", lambda *_: SimpleNamespace(delivery_state=lambda key, channel: "SUCCESS" if key.endswith(":01") else None))
+    recorded = []
+    store = SimpleNamespace(
+        delivery_state=lambda key, channel: "SUCCESS" if key.endswith(":01") else None,
+        record_skipped=lambda **kwargs: recorded.append(kwargs),
+    )
+    monkeypatch.setattr(cli, "StateStore", lambda *_: store)
     monkeypatch.setattr(cli, "run", lambda *_: (_ for _ in ()).throw(SkipArticle("Notion page is not READY")))
     result = cli.execute(Namespace(command="run", env_file=None, state=None, profile="overseas", period=None, auto=True))
     assert result["status"] == "SKIPPED" and result["period"] == "02"
+    assert recorded == [{
+        "profile": "overseas", "period": "02", "source_key": "overseas-stories:02",
+        "reason_code": "NOTION_NOT_READY",
+    }]
