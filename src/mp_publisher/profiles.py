@@ -33,7 +33,7 @@ PROFILES = {
         name="producthunt",
         parent_id="4109e605-ccf8-81c4-accd-c19386b4a38d",
         source="producthunt",
-        schedule="daily 17:30 + 18:30 fallback Asia/Shanghai",
+        schedule="daily 19:00, 20:00, 21:00 Asia/Shanghai; after producer recovery windows",
     ),
     "trustmrr": Profile(
         name="trustmrr",
