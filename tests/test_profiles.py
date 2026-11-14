@@ -27,18 +27,18 @@ def test_producthunt_three_beijing_retry_slots_and_same_period():
     timer = (Path(__file__).resolve().parents[1] / "systemd" / "mp-publisher-producthunt.timer").read_text()
     calendars = [line for line in timer.splitlines() if line.startswith("OnCalendar=")]
     assert calendars == [
-        "OnCalendar=*-*-* 19:00:00 Asia/Shanghai",
-        "OnCalendar=*-*-* 20:00:00 Asia/Shanghai",
-        "OnCalendar=*-*-* 21:00:00 Asia/Shanghai",
+        "OnCalendar=*-*-* 20:45:00 Asia/Shanghai",
+        "OnCalendar=*-*-* 22:15:00 Asia/Shanghai",
+        "OnCalendar=*-*-* 01:00:00 Asia/Shanghai",
     ]
     assert "Persistent=false" in timer
-    assert "Unit=mp-publisher@producthunt.service" in timer
-    assert PROFILES["producthunt"].schedule == "daily 19:00, 20:00, 21:00 Asia/Shanghai; after producer recovery windows"
+    assert "Unit=mp-publisher-producthunt.service" in timer
+    assert PROFILES["producthunt"].schedule == "daily 20:45, 22:15, 01:00 Asia/Shanghai; three-day READY catch-up"
 
     tz = ZoneInfo("Asia/Shanghai")
-    first = datetime(2026, 11, 7, 19, 0, tzinfo=tz)
-    fallback = datetime(2026, 11, 7, 20, 0, tzinfo=tz)
-    final = datetime(2026, 11, 7, 21, 0, tzinfo=tz)
+    first = datetime(2026, 11, 7, 20, 45, tzinfo=tz)
+    fallback = datetime(2026, 11, 7, 22, 15, tzinfo=tz)
+    final = datetime(2026, 11, 8, 1, 0, tzinfo=tz)
     assert default_period(PROFILES["producthunt"], first) == "2026-11-06"
     assert default_period(PROFILES["producthunt"], fallback) == "2026-11-06"
     assert default_period(PROFILES["producthunt"], final) == "2026-11-06"
