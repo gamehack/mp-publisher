@@ -11,7 +11,8 @@ from .channels import check_wechat_credentials
 from .errors import PublisherError, SkipArticle
 from .legacy import import_file
 from .operations import backup_state, inspect_state
-from .profiles import PROFILES, default_period, get_profile, scheduled_periods, source_key, validate_period
+from .profiles import (PROFILES, default_period, get_profile, producthunt_backlog_periods,
+                       scheduled_periods, source_key, validate_period)
 from .notion import NotionReader
 from .runner import read_article, run
 from .state import StateStore
@@ -26,7 +27,7 @@ def parser() -> argparse.ArgumentParser:
         cmd = commands.add_parser(name)
         cmd.add_argument("--profile", required=True, choices=sorted(PROFILES))
         cmd.add_argument("--period", "--issue", dest="period", help="Overseas: serial issue (01); other profiles: period")
-        cmd.add_argument("--auto", action="store_true", help="Overseas: send first not-yet-delivered READY serial")
+        cmd.add_argument("--auto", action="store_true", help="Overseas: next READY serial; Product Hunt: last three LA snapshot days")
     status = commands.add_parser("status")
     status.add_argument("--profile", choices=sorted(PROFILES))
     health = commands.add_parser("health")
@@ -86,8 +87,39 @@ def execute(args: argparse.Namespace) -> dict[str, object]:
         return {"status": "OK", "scope": "wechat_credential_and_ip_check", "external_write": False}
     auto = getattr(args, "auto", False)
     if auto:
-        if args.command != "run" or args.profile != "overseas" or args.period:
-            raise PublisherError("--auto requires overseas run without --period")
+        if args.command != "run" or args.period:
+            raise PublisherError("--auto requires run without --period")
+        if args.profile == "producthunt":
+            profile = PROFILES["producthunt"]
+            reports: list[dict[str, object]] = []
+            for period in producthunt_backlog_periods():
+                key = source_key(profile, period)
+                previous = store.delivery_state(key, "wechat")
+                if previous == "SUCCESS":
+                    continue  # Never re-read/re-send successful source keys.
+                if previous not in (None, "PENDING"):
+                    reports.append({"period": period, "source_key": key,
+                                    "status": "ACTION_REQUIRED",
+                                    "reason": "Existing delivery requires manual reconciliation"})
+                    continue
+                try:
+                    outcome = _run_and_record(profile, period, store)
+                    reports.append({"period": period, "source_key": key,
+                                    "status": "COMPLETED", "wechat": outcome.wechat})
+                except SkipArticle:
+                    # Missing READY is not a successful daily run. Keep checking
+                    # the other independent days, with a nonzero service exit.
+                    reports.append({"period": period, "source_key": key,
+                                    "status": "SKIPPED", "reason": "NOTION_NOT_READY"})
+                except PublisherError as exc:
+                    reports.append({"period": period, "source_key": key,
+                                    "status": "FAILED", "reason": str(exc)})
+            statuses = {item["status"] for item in reports}
+            status = ("ACTION_REQUIRED" if "ACTION_REQUIRED" in statuses or "FAILED" in statuses
+                      else "SKIPPED" if "SKIPPED" in statuses else "COMPLETED")
+            return {"profile": profile.name, "status": status, "reports": reports}
+        if args.profile != "overseas":
+            raise PublisherError("--auto supports only overseas or producthunt")
         reader = NotionReader(config.required("NOTION_API_KEY"))
         try:
             issues = reader.overseas_issues(PROFILES["overseas"].parent_id)
