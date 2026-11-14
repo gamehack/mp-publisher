@@ -33,7 +33,7 @@ PROFILES = {
         name="producthunt",
         parent_id="4109e605-ccf8-81c4-accd-c19386b4a38d",
         source="producthunt",
-        schedule="daily 19:00, 20:00, 21:00 Asia/Shanghai; after producer recovery windows",
+        schedule="daily 20:45, 22:15, 01:00 Asia/Shanghai; three-day READY catch-up",
     ),
     "trustmrr": Profile(
         name="trustmrr",
@@ -68,6 +68,22 @@ def default_period(profile: Profile, now: datetime | None = None) -> str:
     monday = now.astimezone(BEIJING).date() - timedelta(days=now.astimezone(BEIJING).weekday())
     return "weekly:" + monday.isoformat()
 
+
+
+def producthunt_backlog_periods(now: datetime | None = None, *, days: int = 3) -> tuple[str, ...]:
+    """Recent completed Los Angeles snapshot days, oldest first.
+
+    This is a bounded, explicitly signed READY catch-up window. It does not
+    infer that a missing Notion page was successfully published.
+    """
+    if not 1 <= days <= 7:
+        raise PublisherError("Product Hunt backlog days must be 1..7")
+    current = now or datetime.now(BEIJING)
+    latest = current.astimezone(PACIFIC).date() - timedelta(days=1)
+    return tuple(
+        (latest - timedelta(days=offset)).isoformat()
+        for offset in range(days - 1, -1, -1)
+    )
 
 
 def scheduled_periods(profile: Profile, now: datetime | None = None) -> tuple[str, ...]:

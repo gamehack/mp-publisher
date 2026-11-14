@@ -19,13 +19,26 @@ Grok / Product Hunt / TrustMRR → Notion 唯一 READY 正文
 | Profile | Notion 父页面 | source_key | 北京时间 |
 |---|---|---|---|
 | `x` | `4019e605ccf881939c2ddbe20e3112fa` | `x-daily:YYYY-MM-DD` | 每天 07:30 |
-| `producthunt` | `4109e605ccf881c4accdc19386b4a38d` | `producthunt:YYYY-MM-DD` | 每天 19:00、20:00、21:00 三次检查 |
+| `producthunt` | `4109e605ccf881c4accdc19386b4a38d` | `producthunt:YYYY-MM-DD` | 每天 20:45、22:15、次日 01:00 三次补偿检查 |
 | `trustmrr` | `4109e605ccf881eda46cf9ab95538f5b` | `trustmrr-weekly:YYYY-MM-DD` / `trustmrr-monthly:YYYY-MM` | 周一 03:00；首个周一还检查月报 |
 
 - Product Hunt 的周期以 `America/Los_Angeles` 上一个完整自然日为准，其余调度使用 `Asia/Shanghai`。
-- 没有 READY 或校验失败绝不投递；Product Hunt 在上游 17:15、18:23、19:00 生产窗口后于 19:00、20:00、21:00 三次检查。缺失 READY 会写入最小化 `execution_events` 记录并以非零退出码结束，供 Ops 告警；绝不创建 SQLite 文章快照或调用微信 API。`Persistent=false`，不因关机自动补发历史稿件。
+- 没有 READY 或校验失败绝不投递；Product Hunt 在上游 17:15、18:23、19:00 生产窗口后于 20:45、22:15、次日 01:00 三次检查。缺失 READY 会写入最小化 `execution_events` 记录并以非零退出码结束，供 Ops 告警；绝不创建 SQLite 文章快照或调用微信 API。`Persistent=false`，不因关机自动补发历史稿件。
 - 微信凭据校验先于 `draft/add`；发起外部请求前写入 `INTENT`，任何不确定结果记为 `UNKNOWN`，必须人工在公众号后台核验后才能恢复。已成功的 `source_key` 再次运行只返回 `ALREADY_DONE`。
 - 私有 SQLite 路径 `/var/lib/mp-publisher/state.sqlite`（容器内 `/data/state.sqlite`），保留文章快照、微信回执与人工对账记录。镜像和 GitHub 均不保存正文、数据库或密钥。
+
+## Product Hunt 跨日补偿（2026-11-15）
+
+上游 GitHub Actions 可能迟到或因 AI 模型服务 HTTP 524 暂时失败。仅检查当天上一完整洛杉矶日会导致文章晚 READY 后永久漏投。现在独立 `mp-publisher-producthunt.service` 使用 `run --profile producthunt --auto`，每次按洛杉矶日期从旧到新检查最近 **3 个完整快照日**：
+
+- SQLite 已有 `SUCCESS`：跳过，不查询微信、不调用 `draft/add`。
+- `UNKNOWN`、`INTENT` 或 `FAILED`：仅返回 `ACTION_REQUIRED`，要求人工核对，绝不自动解锁或重投。
+- 无微信投递记录 / 仅 `PENDING` 且 Notion 有效 READY：通过既有签名校验及幂等机制创建未群发草稿。
+- Notion 不存在或未 READY：写入 `execution_events` 的 `NOTION_NOT_READY`，继续检查其他独立日期，整体返回 `SKIPPED`（退出码 3），便于监控及时告警。
+
+独立服务与旧模板使用相同 `/run/lock/mp-publisher-producthunt.lock`，避免并发重复投递。新 timer 为北京时间 20:45、22:15、次日 01:00，`Persistent=false`。同一次执行只在最近 3 日补偿，不会无限扫描历史，更不会跳过 Notion READY 门禁。
+
+人工诊断仍使用明确期号的 `dry-run`；对历史更久期号仍应先对账再执行受控 `backfill --authorize`。
 
 ## 代码开发与 CI
 
