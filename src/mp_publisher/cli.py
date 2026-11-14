@@ -171,7 +171,7 @@ def execute(args: argparse.Namespace) -> dict[str, object]:
     if args.command == "backfill":
         if not args.authorize:
             raise PublisherError("backfill requires --authorize")
-        outcome = run(profile, period, store)
+        outcome = _run_and_record(profile, period, store)
         return {**outcome.article.public_summary(), "status": "BACKFILL_COMPLETED", "wechat": outcome.wechat}
     if args.command == "status":
         return {"status": "OK", "wechat_deliveries": store.rows(args.profile)}
