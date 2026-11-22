@@ -9,13 +9,20 @@ from mp_publisher.notion import NotionReader, load_article, split_ready
 from mp_publisher.profiles import PROFILES
 
 
-def test_ready_marker_hash_and_mutation_detection():
+def test_ready_marker_does_not_validate_sha_or_reject_edited_body():
     body = "# 标题\n\n正文\n"
     digest = hashlib.sha256(body.encode()).hexdigest()
     marker = f"QJAI_PUBLISH_READY v=1 source_key=producthunt:2026-11-05 content_sha256={digest}"
     assert split_ready(body + marker + "\n", "producthunt:2026-11-05") == (body, digest)
-    with pytest.raises(SkipArticle, match="changed"):
-        split_ready(body + "被改动\n" + marker, "producthunt:2026-11-05")
+    edited = body + "被改动\n"
+    assert split_ready(edited + marker + "\n", "producthunt:2026-11-05") == (
+        edited, hashlib.sha256(edited.encode()).hexdigest()
+    )
+    # A supplied SHA is optional and never treated as an integrity gate.
+    assert split_ready(body + "QJAI_PUBLISH_READY v=1 source_key=producthunt:2026-11-05\n",
+                       "producthunt:2026-11-05") == (body, digest)
+    assert split_ready(body + "QJAI_PUBLISH_READY v=1 source_key=producthunt:2026-11-05 content_sha256=stale\n",
+                       "producthunt:2026-11-05") == (body, digest)
 
 
 def test_overseas_serial_ready_marker_is_isolated_from_daily_profiles():
@@ -40,8 +47,10 @@ def test_notion_v2_escaped_ready_and_code_header_are_accepted():
     assert (verified, got) == (content, digest)
     assert "潜界 AI 文章归档" not in reader_markdown(verified, "测试标题")
     assert "# 测试标题" in reader_markdown(verified, "测试标题")
-    with pytest.raises(SkipArticle, match="changed"):
-        split_ready(content + "被改动\n" + escaped + "\n", "producthunt:2026-10-30")
+    edited = content + "被改动\n"
+    assert split_ready(edited + escaped + "\n", "producthunt:2026-10-30") == (
+        edited, hashlib.sha256(edited.encode("utf-8")).hexdigest()
+    )
 
 
 def test_pagination_requires_consistent_cursor():
@@ -162,3 +171,27 @@ def test_truncated_markdown_never_becomes_draft():
     with pytest.raises(PublisherError, match="truncated"):
         reader.markdown("11111111-1111-4111-8111-111111111111")
     reader.close()
+
+def test_changed_snapshot_is_allowed_only_before_external_wechat_request(tmp_path):
+    from mp_publisher.models import Article
+    from mp_publisher.state import StateStore
+
+    store = StateStore(tmp_path / "state.sqlite")
+    initial = Article("producthunt", "2026-11-05", "producthunt:2026-11-05",
+                      "page-1", "标题", "标题", "摘要", "old body", "old html", "a" * 64)
+    updated = Article("producthunt", "2026-11-05", "producthunt:2026-11-05",
+                      "page-1", "标题", "标题", "摘要", "new body", "new html", "b" * 64)
+    store.save_snapshot(initial)
+    store.save_snapshot(updated)
+    with store.connect() as db:
+        row = db.execute("SELECT body_markdown,content_sha256 FROM articles WHERE source_key=?",
+                         ("producthunt:2026-11-05",)).fetchone()
+        assert tuple(row) == ("new body", "b" * 64)
+    store.mark(initial.source_key, "wechat", "SUCCESS", receipt="existing-draft")
+    store.save_snapshot(initial)
+    with store.connect() as db:
+        row = db.execute("SELECT body_markdown,content_sha256 FROM articles WHERE source_key=?",
+                         ("producthunt:2026-11-05",)).fetchone()
+        assert tuple(row) == ("new body", "b" * 64)
+    assert store.delivery_state(initial.source_key, "wechat") == "SUCCESS"
+
