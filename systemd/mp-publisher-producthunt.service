@@ -10,9 +10,13 @@ WorkingDirectory=/opt/mp-publisher
 UMask=0077
 StateDirectory=mp-publisher
 StateDirectoryMode=0700
-ExecStart=/usr/bin/flock --nonblock /run/lock/mp-publisher-producthunt.lock /usr/bin/docker compose -f /opt/mp-publisher/compose.yaml run --rm --no-deps mp-publisher run --profile producthunt --auto
+# Use a writable Docker CLI config directory inside the service sandbox.
+RuntimeDirectory=mp-publisher-producthunt-docker
+RuntimeDirectoryMode=0700
+Environment=DOCKER_CONFIG=/run/mp-publisher-producthunt-docker
+ExecStart=/usr/bin/flock --nonblock /run/lock/mp-publisher-producthunt.lock /usr/bin/docker compose -f /opt/mp-publisher/compose.yaml run --rm --no-deps --pull never mp-publisher run --profile producthunt --auto
 TimeoutStartSec=900
 NoNewPrivileges=true
 ProtectHome=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/mp-publisher /run/lock
+ReadWritePaths=/var/lib/mp-publisher /run/lock /run/mp-publisher-producthunt-docker
