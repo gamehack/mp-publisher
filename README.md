@@ -77,6 +77,7 @@ mp-publisher backfill --profile producthunt --period 2026-11-06 --authorize
 - 私有状态：`/var/lib/mp-publisher/state.sqlite`（root 拥有，`0600`），state 目录 `0700`。
 - 无公开监听端口，使用 Docker 默认 bridge 网络的服务器出口 IP。`check-wechat` 必须在**容器内**通过，确认该出口 IP 在公众号白名单。
 - 镜像文件系统只读，除 `/data` 和临时 `/tmp` 外无写入挂载；移除 Linux capabilities、禁止新权限。
+- systemd one-shot 使用 `RuntimeDirectory=mp-publisher-docker` 和 `DOCKER_CONFIG=/run/mp-publisher-docker`，避免 `ProtectHome=true` 与 `ProtectSystem=strict` 阻止 Docker 在 `/root/.docker` 建目录。运行时使用 `docker compose run --pull never`，绝不从不存在的 `qjai/mp-publisher` 远程仓库拉取；部署阶段必须先在宿主机执行 `docker compose build mp-publisher`，并核验 `docker image inspect qjai/mp-publisher:local`，才允许定时器执行业务任务。
 - `docker compose run --rm` 每个定时任务执行完即退出，不占常驻容器资源。
 
 ### 现行部署与迁移验收（2026-11-08）
