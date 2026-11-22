@@ -10,9 +10,13 @@ WorkingDirectory=/opt/mp-publisher
 UMask=0077
 StateDirectory=mp-publisher
 StateDirectoryMode=0700
-ExecStart=/usr/bin/flock --nonblock /run/lock/mp-publisher-overseas.lock /usr/bin/docker compose -f /opt/mp-publisher/compose.yaml run --rm --no-deps mp-publisher run --profile overseas --auto
+# Keep Docker CLI config writable in this systemd sandbox.
+RuntimeDirectory=mp-publisher-overseas-docker
+RuntimeDirectoryMode=0700
+Environment=DOCKER_CONFIG=/run/mp-publisher-overseas-docker
+ExecStart=/usr/bin/flock --nonblock /run/lock/mp-publisher-overseas.lock /usr/bin/docker compose -f /opt/mp-publisher/compose.yaml run --rm --no-deps --pull never mp-publisher run --profile overseas --auto
 TimeoutStartSec=900
 NoNewPrivileges=true
 ProtectHome=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/mp-publisher /run/lock
+ReadWritePaths=/var/lib/mp-publisher /run/lock /run/mp-publisher-overseas-docker
