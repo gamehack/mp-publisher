@@ -1,6 +1,6 @@
 # mp-publisher
 
-潜界 AI 的独立微信公众号**草稿箱投递器**。内容生产项目将正式文章写入 Notion READY 专栏；本项目只从固定专栏读取原稿、校验来源与正文哈希、转换微信 HTML，再通过微信公众平台 `draft/add` 创建**未群发草稿**。
+潜界 AI 的独立微信公众号**草稿箱投递器**。内容生产项目将正式文章写入 Notion READY 专栏；本项目只从固定专栏读取原稿、校验来源与 READY 状态、转换微信 HTML，再通过微信公众平台 `draft/add` 创建**未群发草稿**。
 
 **运行位置：硅谷服务器 Docker 容器**。微信公众平台的 API IP 白名单包含该服务器的出口 IP，因此定时发布不能在 GitHub-hosted Actions 上执行。本仓库的 Actions **只跑 CI**，生产调度由服务器 systemd timer 启动临时容器，不运行常驻 HTTP 服务或定时轮询。
 
@@ -11,7 +11,7 @@
 ```text
 Grok / Product Hunt / TrustMRR → Notion 唯一 READY 正文
   → 硅谷 systemd timer → docker compose run --rm mp-publisher
-  → 校验直接父页面、标题、来源键、SHA-256
+  → 校验直接父页面、标题、READY 状态与来源键（不校验 SHA）
   → 私有 SQLite 微信幂等状态 → 微信 token / draft/add
   → 微信公众号草稿箱（不群发）
 ```
@@ -22,6 +22,7 @@ Grok / Product Hunt / TrustMRR → Notion 唯一 READY 正文
 | `producthunt` | `4109e605ccf881c4accdc19386b4a38d` | `producthunt:YYYY-MM-DD` | 每天 20:45、22:15、次日 01:00 三次补偿检查 |
 | `trustmrr` | `4109e605ccf881eda46cf9ab95538f5b` | `trustmrr-weekly:YYYY-MM-DD` / `trustmrr-monthly:YYYY-MM` | 周一 03:00；首个周一还检查月报 |
 
+- **SHA 规则**：X 只检查 `交付状态：READY`；其他栏目检查 READY 标记及其 `source_key`，但不要求 SHA 字段，也不对比正文哈希。仍计算本地 SHA-256 作为审计指纹；同一 `source_key` 仅在微信投递状态为 `PENDING` 时允许更新快照，`INTENT`、`UNKNOWN`、`FAILED`、`SUCCESS` 不会被重新投递。
 - Product Hunt 的周期以 `America/Los_Angeles` 上一个完整自然日为准，其余调度使用 `Asia/Shanghai`。
 - 没有 READY 或校验失败绝不投递；Product Hunt 在上游 17:15、18:23、19:00 生产窗口后于 20:45、22:15、次日 01:00 三次检查。缺失 READY 会写入最小化 `execution_events` 记录并以非零退出码结束，供 Ops 告警；绝不创建 SQLite 文章快照或调用微信 API。`Persistent=false`，不因关机自动补发历史稿件。
 - 微信凭据校验先于 `draft/add`；发起外部请求前写入 `INTENT`，任何不确定结果记为 `UNKNOWN`，必须人工在公众号后台核验后才能恢复。已成功的 `source_key` 再次运行只返回 `ALREADY_DONE`。
