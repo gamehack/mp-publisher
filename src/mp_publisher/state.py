@@ -109,12 +109,32 @@ class StateStore:
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             found = db.execute(
-                "SELECT content_sha256, notion_page_id FROM articles WHERE source_key=?",
+                "SELECT notion_page_id FROM articles WHERE source_key=?",
                 (article.source_key,),
             ).fetchone()
             if found:
-                if found["content_sha256"] != article.content_sha256 or found["notion_page_id"] != article.notion_page_id:
-                    raise StateConflict("Existing sourceKey snapshot differs; refusing overwrite")
+                if found["notion_page_id"] != article.notion_page_id:
+                    raise StateConflict("Existing sourceKey refers to a different Notion page")
+                delivery = db.execute(
+                    "SELECT state FROM deliveries WHERE source_key=? AND channel='wechat'",
+                    (article.source_key,),
+                ).fetchone()
+                if delivery is None:
+                    raise StateConflict("Existing sourceKey has no WeChat delivery record")
+                if delivery["state"] == "PENDING":
+                    # Before any external request, keep the snapshot consistent
+                    # with the current article without comparing SHA values.
+                    db.execute("""
+                        UPDATE articles SET notion_title=?, title=?, summary=?,
+                            body_markdown=?, wechat_html=?, content_sha256=?,
+                            content_version=?, snapshotted_at=?
+                        WHERE source_key=?
+                    """, (
+                        article.notion_title, article.title, article.summary,
+                        article.body_markdown, article.wechat_html, article.content_sha256,
+                        article.version, utcnow(), article.source_key,
+                    ))
+                # INTENT/UNKNOWN/FAILED/SUCCESS stay immutable and cannot be resent.
                 db.commit()
                 return
             db.execute("""
